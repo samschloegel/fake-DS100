@@ -1,0 +1,12 @@
+{
+  "QLab": {
+    "Port": "53000",
+    "Address": "localhost"
+  },
+  "DS100": {
+    "Port": "50010",
+    "Reply": "50011",
+    "Address": "localhost",
+    "defaultMapping": "1"
+  }
+}
