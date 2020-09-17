@@ -59,7 +59,7 @@ emitter.on("randomize", function(oscMessage) {
   posCache.forEach(obj => {
     obj.x = Math.random();
     obj.y = Math.random();
-    emitter.emit("cacheRandomized", obj.num, config.DS100.defaultMapping);
+    emitter.emit("cacheRandomized", oscMessage);
   });
 });
 
@@ -71,48 +71,58 @@ emitter.on("dbaudio1", function (oscMessage) {
     let objNum = parseInt(oscMessage.pathArr[4]);
     
     if (oscMessage.argsArr.length === 0) { // No arguments, send current coordinates
-      emitter.emit("posQueried", objNum, mapping);
-    } else { // New coordinates received - update cache and send newly cached coordinates
-      let newX, newY;
-      if (oscMessage.pathArr[2].endsWith("_y")) {
-        [newY] = oscMessage.argsArr;
-      } else {
-        [newX, newY] = oscMessage.argsArr;
-      };
-      emitter.emit("newCoordinatesReceived", objNum, mapping, {x: newX, y: newY}); // Save new position to cache
+      emitter.emit("posQueried", oscMessage);
+    } else { // Save new position to cache
+      emitter.emit("newCoordinatesReceived", oscMessage);
     };
 
   };
 });
 
 // Send cached position of queried object
-const sendObjPos = function(objNum, mapping) {
-  if (typeof objNum === "string") {
-    objNum = parseInt(objNum);
-  }
+const sendObjPos = function(oscMessage) {
+  let objNum = parseInt(oscMessage.pathArr[4]);
+  let mapping = oscMessage.pathArr[3];
+
   let queriedObj = posCache.filter(item => item.num === objNum).pop(); // posCache object
   let currentX = queriedObj.x;
   let currentY = queriedObj.y;
+
   let currentPos = {
     oscType: "message",
     address: `/dbaudio1/coordinatemapping/source_position_xy/${mapping}/${objNum}`,
     args: [currentX, currentY]
   };
+
   let buffer = osc.toBuffer(currentPos);
+
   server.send(buffer, 0, buffer.length, config.DS100.Reply, "localhost", (err) => { // localhost is placeholder
     if (err) {throw err};
     console.log(`Fake DS100 sent: ${currentPos.address} ${currentPos.args.join(" ")}`);
   });
+
 };
-emitter.on("cacheRandomized", (objNum, mapping) => sendObjPos(objNum, mapping));
-emitter.on("posQueried", (objNum, mapping) => sendObjPos(objNum, mapping));
-emitter.on("cacheUpdated", (objNum, mapping) => sendObjPos(objNum, mapping));
+emitter.on("cacheRandomized", (oscMessage) => sendObjPos(oscMessage));
+emitter.on("posQueried", (oscMessage) => sendObjPos(oscMessage));
+emitter.on("cacheUpdated", (oscMessage) => sendObjPos(oscMessage));
 
 // Store received coordinated to cache, emit cacheUpdated
-const cacheObjPos = function (objNum, mapping, coordinates) {
-  let queriedObj = posCache.filter(item => item.num === objNum).pop()
-  typeof coordinates.x !== "undefined" ? queriedObj.x = coordinates.x : "";
-  typeof coordinates.y !== "undefined" ? queriedObj.y = coordinates.y : "";
-  emitter.emit("cacheUpdated", objNum, mapping); // Send new object position
-};
-emitter.on("newCoordinatesReceived", (objNum, mapping, coordinates) => cacheObjPos(objNum, mapping, coordinates))
+const cacheObjPos = function (oscMessage) {
+  
+  let newX, newY;
+  if (oscMessage.pathArr[2].endsWith("_y")) {
+    [newY] = oscMessage.argsArr;
+  } else {
+    [newX, newY] = oscMessage.argsArr;
+  }
+
+  let objNum = parseInt(oscMessage.pathArr[4]);
+  let mapping = parseInt(oscMessage.pathArr[3]);
+
+  let queriedObj = posCache.filter((item) => item.num === objNum).pop();
+  typeof newX !== "undefined" ? (queriedObj.x = newX) : "";
+  typeof newY !== "undefined" ? (queriedObj.y = newY) : "";
+
+  emitter.emit("cacheUpdated", oscMessage); // Send new object position
+};;
+emitter.on("newCoordinatesReceived", (oscMessage) => cacheObjPos(oscMessage))
