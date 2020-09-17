@@ -6,18 +6,29 @@
 
 
 ## OSC Commands
----
-
-**/fakeds100...**
-
-`/fakeds100/randomize`
-
-> Sets x and y coordinate of each object in the cache to Math.random()
 
 ---
+### /fakeds100...
+```
+/fakeds100/randomize
+```
 
-**/dbaudio1/coordinatemapping...**
+Updates x and y coordinates of each object in the cache to a random number between 0 and 1, then sends the new cached coordinates of the object (with the default mapping)
 
-`/dbaudio1/coordinatemapping/source_position_[x, y, xy]/[mapping]/[object] [x] [y]`
+---
+### /dbaudio1/coordinatemapping...
 
-> Sets cache to new coordinates if provided, else queries current cached position
+```
+/dbaudio1/coordinatemapping/source_position_x/[mapping]/[object] [x]
+```
+If an argument is provided, updates cached x coordinate, then sends cached x and y coordinates
+
+```
+/dbaudio1/coordinatemapping/source_position_y/[mapping]/[object] [y]
+```
+If an argument is provided, updates cached y coordinate, then sends cached x and y coordinates
+
+```
+/dbaudio1/coordinatemapping/source_position_xy/[mapping]/[object] [x] [y]
+```
+If arguments are provided, updates cached x and y coordinates, then sends cached x and y coordinates
