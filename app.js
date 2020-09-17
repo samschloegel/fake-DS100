@@ -2,6 +2,9 @@ const osc = require("osc-min");
 const udp = require("dgram");
 const config = require("./config.json");
 const { objects: posCache } = require("./objects.json");
+const EventEmitter = require("events");
+
+const emitter = new EventEmitter();
 
 let server = udp.createSocket("udp4");
 
@@ -10,113 +13,106 @@ server.bind({
   port: config.DS100.Port
 });
 
-// Error handling (closes listening port)
+// Server error handling (closes listening port)
 server.on("error", (err) => {
-  console.log(`server error:\n${err.stack}`);
+  //console.log(`server error:\n${err.stack}`);
+  console.log(err);
   console.log(`server will close`);
   server.close();
 });
 
-// Log Listening event
+// Log server Listening event
 server.on("listening", () => {
   const address = server.address();
   console.log(`Fake DS100 listening on ${address.address}:${address.port}`);
 });
 
-// Incoming message initial handling
+// Incoming message handling
 server.on("message", (msg, rinfo) => {
-  let message;
+  let oscMessage;
   try {
-    message = osc.fromBuffer(msg);
-    let args = message.args.map((arg) => arg.value);
-    let received = `${message.address} ${args.join(" ")}`;
+    oscMessage = osc.fromBuffer(msg);
+    oscMessage.argsArr = oscMessage.args.map((arg) => arg.value);
+    oscMessage.pathArr = oscMessage.address.split("/").slice(1);
     console.log(
-      `--------------------------------\nFake DS100 received: ${received} from ${rinfo.family} address ${rinfo.address}:${rinfo.port} (size ${rinfo.size})`
+      `Fake DS100 received: ${oscMessage.address} ${oscMessage.argsArr.join(" ")} from ${rinfo.address}:${rinfo.port}`
     );
   } catch (err) {
     console.error(err);
   }
-  if (message && message.address.startsWith("/dbaudio1")) {
-    parseDbaudio1(message);
-  } else if (message && message.address.startsWith("/fakeDS100")) {
-    parseFakeDS100(message);
+  if (oscMessage && oscMessage.address.startsWith("/dbaudio1")) {
+    emitter.emit("dbaudio1", oscMessage);
+  } else if (oscMessage && oscMessage.address.startsWith("/fakeDS100")) {
+    emitter.emit("fakeds100", oscMessage);
   }
 });
 
-const parseFakeDS100 = function(oscMessage) { // Parse messages beginning with /fakeDS100
-  let addressArr = oscMessage.address.split("/").slice(2);
-  let args = oscMessage.args.map((arg) => arg.value);
-  if (addressArr[0] === "randomize") {
-    posCache.forEach(obj => {
-      obj.x = Math.random();
-      obj.y = Math.random();
-      replyObjPos(obj.num, config.DS100.defaultMapping);
-    });
+// /fakeds100...
+emitter.on("fakeds100", function(oscMessage) { // Parse messages beginning with /fakeDS100
+  if (oscMessage.pathArr[1] === "randomize") {
+    emitter.emit("randomize", oscMessage);
   };
-}
+});
 
-const parseDbaudio1 = function (oscMessage) { // Parse messages beginning with /dbaudio1
-  let addressArr = oscMessage.address.split("/").slice(2);
-  let args = oscMessage.args.map((arg) => arg.value);
-  //console.log(args);
-  if (addressArr[0] === "coordinatemapping") {
-    let mapping = addressArr[2];
-    let objNum = addressArr[3];
-    if (args.length === 0) {
-      replyObjPos(objNum, mapping);
-    } else {
+// /fakeds100/randomize
+emitter.on("randomize", function(oscMessage) {
+  posCache.forEach(obj => {
+    obj.x = Math.random();
+    obj.y = Math.random();
+    emitter.emit("cacheRandomized", obj.num, config.DS100.defaultMapping);
+  });
+});
+
+// /dbaudio1...
+emitter.on("dbaudio1", function (oscMessage) { 
+  if (oscMessage.pathArr[1] === "coordinatemapping") {
+    
+    let mapping = parseInt(oscMessage.pathArr[3]);
+    let objNum = parseInt(oscMessage.pathArr[4]);
+    
+    if (oscMessage.argsArr.length === 0) { // No arguments, send current coordinates
+      emitter.emit("posQueried", objNum, mapping);
+    } else { // New coordinates received - update cache and send newly cached coordinates
       let newX, newY;
-      if (addressArr[1].endsWith("_y")) {
-        [newY] = args;
+      if (oscMessage.pathArr[2].endsWith("_y")) {
+        [newY] = oscMessage.argsArr;
       } else {
-        [newX, newY] = args;
-      }
-      console.log(newX, newY);
-      let mapping = addressArr[2];
-      let obj = parseInt(addressArr[3]);
-      cacheObjPos(obj, [newX, newY]);
-      replyObjPos(obj, mapping);
+        [newX, newY] = oscMessage.argsArr;
+      };
+      emitter.emit("newCoordinatesReceived", objNum, mapping, {x: newX, y: newY}); // Save new position to cache
     };
 
   };
-};
+});
 
-const replyObjPos = function(objNum, mapping) { // objNum is an integer corresponding to DS100 Obj number
+// Send cached position of queried object
+const sendObjPos = function(objNum, mapping) {
   if (typeof objNum === "string") {
     objNum = parseInt(objNum);
   }
-  let queriedObj = posCache.filter(item => item.num === objNum).pop()
+  let queriedObj = posCache.filter(item => item.num === objNum).pop(); // posCache object
   let currentX = queriedObj.x;
   let currentY = queriedObj.y;
   let currentPos = {
     oscType: "message",
     address: `/dbaudio1/coordinatemapping/source_position_xy/${mapping}/${objNum}`,
-    args: [
-      {
-        type: "float",
-        value: currentX
-      },
-      {
-        type: "float",
-        value: currentY
-      }
-    ]
+    args: [currentX, currentY]
   };
   let buffer = osc.toBuffer(currentPos);
-  server.send(buffer, 0, buffer.length, config.DS100.Reply, "localhost", () => { // localhost is placeholder
-    console.log(
-      `Fake DS100 replied: ${currentPos.address} ${currentPos.args
-        .map((arg) => arg.value)
-        .join(" ")}`
-    );
+  server.send(buffer, 0, buffer.length, config.DS100.Reply, "localhost", (err) => { // localhost is placeholder
+    if (err) {throw err};
+    console.log(`Fake DS100 sent: ${currentPos.address} ${currentPos.args.join(" ")}`);
   });
 };
+emitter.on("cacheRandomized", (objNum, mapping) => sendObjPos(objNum, mapping));
+emitter.on("posQueried", (objNum, mapping) => sendObjPos(objNum, mapping));
+emitter.on("cacheUpdated", (objNum, mapping) => sendObjPos(objNum, mapping));
 
-const cacheObjPos = function (objNum, args) { // objNum is an integer corresponding to DS100 Obj number
+// Store received coordinated to cache, emit cacheUpdated
+const cacheObjPos = function (objNum, mapping, coordinates) {
   let queriedObj = posCache.filter(item => item.num === objNum).pop()
-  //let objIndex = posCache.indexOf(queriedObj);
-  let newX = args[0];
-  let newY = args[1];
-  newX !== undefined ? queriedObj.x = newX : "";
-  newY !== undefined ? queriedObj.y = newY : "";
+  typeof coordinates.x !== "undefined" ? queriedObj.x = coordinates.x : "";
+  typeof coordinates.y !== "undefined" ? queriedObj.y = coordinates.y : "";
+  emitter.emit("cacheUpdated", objNum, mapping); // Send new object position
 };
+emitter.on("newCoordinatesReceived", (objNum, mapping, coordinates) => cacheObjPos(objNum, mapping, coordinates))
