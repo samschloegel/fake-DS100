@@ -4,12 +4,16 @@
   "description": "Send some responses",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint ./"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "osc-min": "^1.1.2"
+  },
+  "devDependencies": {
+    "eslint": "^7.9.0"
   }
 }
