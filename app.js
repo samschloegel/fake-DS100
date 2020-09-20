@@ -16,7 +16,6 @@ server.bind({
 
 // Server error handling (closes listening port)
 server.on("error", (err) => {
-	//console.log(`server error:\n${err.stack}`);
 	console.log(err);
 	console.log("server will close");
 	server.close();
@@ -35,6 +34,11 @@ server.on("message", (msg, rinfo) => {
 		oscMessage = osc.fromBuffer(msg);
 		oscMessage.argsArr = oscMessage.args.map((arg) => arg.value);
 		oscMessage.pathArr = oscMessage.address.split("/").slice(1);
+		if (oscMessage.argsArr.length > 0) {
+			oscMessage.oscString = `${oscMessage.address} ${oscMessage.argsArr.join(" ")}`;
+		} else {
+			oscMessage.oscString = `${oscMessage.address}`;
+		}
 		console.log(
 			`Fake DS100 received: ${oscMessage.address} ${oscMessage.argsArr.join(" ")} from ${rinfo.address}:${rinfo.port}`
 		);
@@ -49,9 +53,11 @@ server.on("message", (msg, rinfo) => {
 });
 
 // /fakeds100...
-emitter.on("fakeds100", function(oscMessage) { // Parse messages beginning with /fakeDS100
+emitter.on("fakeds100", function(oscMessage) {
 	if (oscMessage.pathArr[1] === "randomize") {
 		emitter.emit("randomize", oscMessage);
+	} else {
+		console.error(`Fake DS100 received an unusable message: ${oscMessage.oscString}`);
 	}
 });
 
