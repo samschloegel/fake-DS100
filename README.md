@@ -24,7 +24,7 @@ As of this writing (Sept 17, 2020) DS100 and QLab port numbers are fixed by thei
 
 DS100.defaultMapping does not currently serve a purpose, added for future funcionality.
 
-```
+```json
 {
   "QLab": {
     "Port": "53000",
@@ -47,7 +47,7 @@ Each object has a **num** property which corresponds to its DS100 input number.
 
 The **name** property does not currently serve a purpose, added for future functionality and easier management of the file.
 
-```
+```json
 {
   "objects": [
     {
