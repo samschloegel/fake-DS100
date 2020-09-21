@@ -3,9 +3,6 @@ const osc = require("osc-min");
 const udp = require("dgram");
 const config = require("./config.json");
 const { objects: posCache } = require("./objects.json");
-const EventEmitter = require("events");
-
-const emitter = new EventEmitter();
 
 let server = udp.createSocket("udp4");
 
