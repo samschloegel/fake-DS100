@@ -109,9 +109,9 @@ const sendObjPos = function(oscMessage) {
 	});
 
 };
-emitter.on("cacheRandomized", (oscMessage) => sendObjPos(oscMessage));
-emitter.on("posQueried", (oscMessage) => sendObjPos(oscMessage));
-emitter.on("cacheUpdated", (oscMessage) => sendObjPos(oscMessage));
+emitter.on("cacheRandomized", sendObjPos);
+emitter.on("posQueried", sendObjPos);
+emitter.on("cacheUpdated", sendObjPos);
 
 // Store received coordinated to cache, emit cacheUpdated
 const cacheObjPos = function (oscMessage) {
