@@ -46,52 +46,58 @@ server.on("message", (msg, rinfo) => {
 		console.error(err);
 	}
 	if (oscMessage && oscMessage.address.startsWith("/dbaudio1")) {
-		emitter.emit("dbaudio1", oscMessage);
+		server.emit("dbaudio1", oscMessage);
 	} else if (oscMessage && oscMessage.address.startsWith("/fakeDS100")) {
-		emitter.emit("fakeds100", oscMessage);
+		server.emit("fakeds100", oscMessage);
 	}
 });
 
 // /fakeds100...
-emitter.on("fakeds100", function(oscMessage) {
+server.on("fakeds100", function(oscMessage) {
 	if (oscMessage.pathArr[1] === "randomize") {
-		emitter.emit("randomize", oscMessage);
+		server.emit("randomize", oscMessage);
 	} else {
 		console.error(`Fake DS100 received an unusable message: ${oscMessage.oscString}`);
 	}
 });
 
 // /fakeds100/randomize
-emitter.on("randomize", function(oscMessage) {
+server.on("randomize", function(oscMessage) {
 	posCache.forEach(obj => {
 		obj.x = Math.random();
 		obj.y = Math.random();
-		emitter.emit("cacheRandomized", oscMessage);
+	});
+	server.emit("cacheRandomized");
+	posCache.forEach(cacheObj => {
+		sendCacheObjPos(cacheObj);
 	});
 });
 
 // /dbaudio1...
-emitter.on("dbaudio1", function (oscMessage) { 
+server.on("dbaudio1", function(oscMessage) { 
 	if (oscMessage.pathArr[1] === "coordinatemapping") {
 		
 		let mapping = parseInt(oscMessage.pathArr[3]);
 		let objNum = parseInt(oscMessage.pathArr[4]);
 		
 		if (oscMessage.argsArr.length === 0) { // No arguments, send current coordinates
-			emitter.emit("posQueried", oscMessage);
+			server.emit("posQueried", oscMessage);
 		} else { // Save new position to cache
-			emitter.emit("newCoordinatesReceived", oscMessage);
+			server.emit("newCoordinatesReceived", oscMessage);
 		}
 
 	}
 });
 
-// Send cached position of queried object
+const getCacheObj = function(key, value, cache = posCache) {
+	return cache.filter(item => item[key] === value).pop();
+};
+
+// Send cached position of queried object BASED ON oscMessage
 const sendObjPos = function(oscMessage) {
 	let objNum = parseInt(oscMessage.pathArr[4]);
 	let mapping = oscMessage.pathArr[3];
-
-	let queriedObj = posCache.filter(item => item.num === objNum).pop(); // posCache object
+	let queriedObj = getCacheObj("num", objNum, posCache);
 	let currentX = queriedObj.x;
 	let currentY = queriedObj.y;
 
@@ -109,12 +115,27 @@ const sendObjPos = function(oscMessage) {
 	});
 
 };
-emitter.on("cacheRandomized", sendObjPos);
-emitter.on("posQueried", sendObjPos);
-emitter.on("cacheUpdated", sendObjPos);
+server.on("posQueried", sendObjPos);
+server.on("cacheUpdated", sendObjPos);
 
-// Store received coordinated to cache, emit cacheUpdated
-const cacheObjPos = function (oscMessage) {
+const sendCacheObjPos = function(cacheObj) {
+	let mapping = config.DS100.defaultMapping;
+	let currentPos = {
+		oscType: "message",
+		address: `/dbaudio1/coordinatemapping/source_position_xy/${mapping}/${cacheObj.num}`,
+		args: [cacheObj.x, cacheObj.y]
+	};
+
+	let buffer = osc.toBuffer(currentPos);
+
+	server.send(buffer, 0, buffer.length, config.DS100.Reply, "localhost", (err) => { // localhost is placeholder
+		if (err) { throw err; }
+		console.log(`Fake DS100 sent: ${currentPos.address} ${currentPos.args.join(" ")}`);
+	});
+};
+
+// Store received coordinates to cache, emit cacheUpdated
+const cacheObjPos = function(oscMessage) {
 	
 	let newX, newY;
 	if (oscMessage.pathArr[2].endsWith("_y")) {
@@ -126,10 +147,10 @@ const cacheObjPos = function (oscMessage) {
 	let objNum = parseInt(oscMessage.pathArr[4]);
 	let mapping = parseInt(oscMessage.pathArr[3]);
 
-	let queriedObj = posCache.filter((item) => item.num === objNum).pop();
+	let queriedObj = getCacheObj("num", objNum, posCache);
 	typeof newX !== "undefined" ? (queriedObj.x = newX) : "";
 	typeof newY !== "undefined" ? (queriedObj.y = newY) : "";
 
-	emitter.emit("cacheUpdated", oscMessage); // Send new object position
+	server.emit("cacheUpdated", oscMessage); // Send new object position
 };
-emitter.on("newCoordinatesReceived", (oscMessage) => cacheObjPos(oscMessage));
+server.on("newCoordinatesReceived", (oscMessage) => cacheObjPos(oscMessage));
