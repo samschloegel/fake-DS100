@@ -1,6 +1,10 @@
 # fakeDS100
 
-An OSC utility for mimicking some d&amp;b audiotechnik DS100 OSC replies
+An OSC utility for mimicking some d&amp;b audiotechnik DS100 OSC replies.
+
+**DISCLAIMER**: I am a live sound person, NOT a software developer. I am very new to Node, JavaScript, Git, and frankly coding in general. If this project is a mess, or looks ridiculous, sorry about that.
+
+If you are like me and this is all very new to you, and you think you might want to use this and need help or have some questions, please [email me](mailto:samsdomainaddress@gmail.com)! I would love to hear from you.
 
 ---
 
@@ -12,7 +16,7 @@ You may have a QLab workspace already built, with a network patch addressed to y
 
 ![alt text](./assets/qlab_network_window.png)
 
-Change the address of your DS100 Network patch (Patch #2 in the example) to localhost. The port number should remain at 50010.
+To use fakeds100 instead of your fancy and expensive REAL DS100, change the address of your DS100 Network patch (Patch #2 in the example) to localhost. The port number should remain at 50010.
 
 ---
 
