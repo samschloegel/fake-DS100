@@ -26,7 +26,7 @@ Change details in the `config.json` file if necessary. Make sure to separate key
 
 As of this writing (Sept 17, 2020) DS100 and QLab port numbers are fixed by their respective creators and should not require changes here.
 
-DS100.defaultMapping does not currently serve a purpose, added for future funcionality.
+DS100.defaultMapping does not currently serve a purpose, added for future functionality.
 
 ```json
 {
@@ -66,7 +66,7 @@ The **name** property does not currently serve a purpose, added for future funct
       "x": 0.0,
       "y": 0.0
     },
-    
+
     ...
 
   ]
@@ -87,7 +87,6 @@ To stop, end the terminal session or press ⌃C on your keyboard.
 
 Upon running the app, a cache of current object positions is initialized from the `objects.json` file. Objects must be present in this file in order to work with fakeds100. For example, sending a query for the current position of En-Scene object #5 will not work is there is not a `{ "num": "5" }` object in `objects.json`.
 
-
 ---
 
 ## OSC Commands
@@ -95,7 +94,6 @@ Upon running the app, a cache of current object positions is initialized from th
 fakeds100 responds to a very limited set of the commands that a real DS100 would respond to. The full OSC library for a real DS100 can be found on d&b's [DS100 Downloads page](https://www.dbaudio.com/global/en/products/processing-matrix/ds100/#tab-downloads).
 
 The limited set of commands that fakeds100 will respond to are documented here:
-
 
 ### /fakeds100/randomize
 
@@ -106,24 +104,29 @@ The limited set of commands that fakeds100 will respond to are documented here:
 Updates x and y coordinates of each object in the cache to a random number between 0 and 1, then sends the new cached coordinates of the object (with the default mapping)
 
 ---
+
 ### /dbaudio1/coordinatemapping...
 
 ```
 /dbaudio1/coordinatemapping/source_position_x/[mapping]/[object] [x]
 ```
+
 If an argument is provided, updates cached x coordinate, then sends cached x and y coordinates.
 
 ```
 /dbaudio1/coordinatemapping/source_position_y/[mapping]/[object] [y]
 ```
+
 If an argument is provided, updates cached y coordinate, then sends cached x and y coordinates.
 
 ```
 /dbaudio1/coordinatemapping/source_position_xy/[mapping]/[object] [x] [y]
 ```
+
 If arguments are provided, updates cached x and y coordinates, then sends cached x and y coordinates.
 
 ---
+
 ## That's it
 
 That's all for now. Hopefully more to come sometime. You can watch this GitHub repo for future updates or [send me an email](mailto:samsdomainaddress@gmail.com).
