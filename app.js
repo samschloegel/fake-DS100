@@ -22,6 +22,7 @@ server.on('error', (err) => {
 server.on('listening', () => {
 	const address = server.address();
 	console.log(`Fake DS100 listening on ${address.address}:${address.port}`);
+	server.emit('randomize');
 });
 
 // Incoming message handling
