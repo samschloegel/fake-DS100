@@ -32,7 +32,7 @@ server.on('message', (msg, rinfo) => {
 		oscMessage = osc.fromBuffer(msg);
 		oscMessage.argsArr = oscMessage.args.map((arg) => arg.value);
 		oscMessage.pathArr = oscMessage.address.split('/').slice(1);
-		console.log(oscMessage.pathArr);
+
 		if (oscMessage.argsArr.length > 0) {
 			oscMessage.oscString = `${oscMessage.address} ${oscMessage.argsArr.join(' ')}`;
 		} else {
