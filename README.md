@@ -30,16 +30,16 @@ DS100.defaultMapping does not currently serve a purpose, added for future functi
 
 ```json
 {
-  "QLab": {
-    "Port": "53000",
-    "Address": "localhost"
-  },
-  "DS100": {
-    "Port": "50010",
-    "Reply": "50011",
-    "Address": "localhost",
-    "defaultMapping": "1"
-  }
+	"QLab": {
+		"Port": "53000",
+		"Address": "localhost"
+	},
+	"DS100": {
+		"Port": "50010",
+		"Reply": "50011",
+		"Address": "localhost",
+		"defaultMapping": "1"
+	}
 }
 ```
 
@@ -52,25 +52,20 @@ Each object has a **num** property which corresponds to its DS100 input number.
 The **name** property does not currently serve a purpose, added for future functionality and easier management of the file.
 
 ```json
-{
-  "objects": [
-    {
-      "num": 1,
-      "name": "Homer",
-      "x": 0.0,
-      "y": 0.0
-    },
-    {
-      "num": 2,
-      "name": "Marge",
-      "x": 0.0,
-      "y": 0.0
-    },
-
-    ...
-
-  ]
-}
+[
+	{
+		"num": 1,
+		"name": "Homer",
+		"x": 0.0,
+		"y": 0.0
+	},
+	{
+		"num": 2,
+		"name": "Marge",
+		"x": 0.0,
+		"y": 0.0
+	}
+]
 ```
 
 ---
