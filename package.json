@@ -1,16 +1,21 @@
 {
 	"name": "fakeds100",
 	"version": "0.0.1",
-	"description": "Send some responses",
+	"description": "Emulate some limited OSC position response functionality of d&b audiotechnik's DS100",
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"lint": "eslint ./",
-		"dev": "nodemon app.js"
+		"dev": "nodemon index.js",
+		"start": "node index.js"
 	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
+	"keywords": [
+		"OSC",
+		"Open Sound Control",
+		"d&b",
+		"DS100"
+	],
+	"author": "Sam Schloegel",
+	"license": "MIT",
 	"dependencies": {
 		"osc-min": "^1.1.2"
 	},
