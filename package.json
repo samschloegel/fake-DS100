@@ -1,5 +1,5 @@
 {
-	"name": "fakeds100",
+	"name": "fake-ds100",
 	"version": "0.0.1",
 	"description": "Emulate some limited OSC position response functionality of d&b audiotechnik's DS100",
 	"main": "index.js",
