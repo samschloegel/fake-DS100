@@ -1,69 +1,53 @@
 const udp = require('dgram');
-const osc = require('./oscextended.js');
-const config = require('./config.json');
-const posCache = require('./objects.json');
+const oscmin = require('osc-min');
+const { toBuffer } = require('osc-min');
+
+const inPort = 50010;
+const outPort = 50011;
+const defaultMapping = 1;
+
+const cache = require('./objects');
 
 const server = udp.createSocket('udp4');
+server.bind(inPort);
 
-server.bind({
-	port: config.DS100.Port,
-});
-
-server.on('error', (err) => {
-	console.log(err);
-	server.close(() => {
-		console.log('server closed');
-	});
-});
-
-server.on('listening', () => {
-	const address = server.address();
-	console.log(`Fake DS100 listening on ${address.address}:${address.port}`);
-	server.emit('randomize');
-});
-
-server.on('message', (msg, rinfo) => {
-	let oscMessage;
-	try {
-		oscMessage = osc.fromBuffer(msg);
-		console.log(`Fake DS100 received: ${oscMessage.oscString} from ${rinfo.address}:${rinfo.port}`);
-	} catch (err) {
-		console.error(err);
-	}
-
-	if (oscMessage.pathArr[0] === 'dbaudio1') {
-		server.emit('dbaudio1', oscMessage);
-	} else if (oscMessage.pathArr[0] === 'fakeds100') {
-		server.emit('fakeds100', oscMessage);
+function fromBuffer(msg) {
+	const oscMinMsg = oscmin.fromBuffer(msg);
+	const extendedMsg = oscMinMsg;
+	extendedMsg.pathArr = oscMinMsg.address.split('/').slice(1);
+	extendedMsg.argsArr = oscMinMsg.args.map((arg) => arg.value);
+	if (extendedMsg.argsArr.length > 0) {
+		extendedMsg.oscString = `${oscMinMsg.address} ${oscMinMsg.argsArr.join(' ')}`;
 	} else {
-		console.error(`Fake DS100 received an unusable message: ${oscMessage.oscString}`);
+		extendedMsg.oscString = `${oscMinMsg.address}`;
 	}
-});
+	return extendedMsg;
+}
 
-function sendCacheObjPos(cacheObj) {
-	const mapping = config.DS100.defaultMapping;
+function getCacheObj(objNum) {
+	const num = parseInt(objNum);
+	return cache.find((cacheObj) => cacheObj.num === num);
+}
+
+function sendPosition(cacheObj, destAddress, mapping = defaultMapping) {
 	const currentPos = {
 		oscType: 'message',
 		address: `/dbaudio1/coordinatemapping/source_position_xy/${mapping}/${cacheObj.num}`,
 		args: [cacheObj.x, cacheObj.y],
 	};
-
-	const buffer = osc.toBuffer(currentPos);
-
-	server.send(buffer, 0, buffer.length, config.DS100.Reply, 'localhost', (err) => {
+	const buffer = toBuffer(currentPos);
+	server.send(buffer, 0, buffer.length, outPort, destAddress, (error) => {
 		// localhost is placeholder
-		if (err) {
-			throw err;
+		if (error) {
+			throw error;
 		}
-		console.log(`Fake DS100 sent: ${currentPos.address} ${currentPos.args.join(' ')}`);
+		console.log(
+			`Sent:     ${currentPos.address} ${currentPos.args.join(' ')} to ${destAddress}:${outPort}`
+		);
 	});
 }
 
-function getCacheObj(objNum) {
-	return posCache.filter((cacheObj) => cacheObj.num === objNum).pop();
-}
-
-function updateCacheObjPos(oscMessage) {
+function updateCoordinates(oscMessage) {
 	let newX;
 	let newY;
 	if (oscMessage.pathArr[2].endsWith('_y')) {
@@ -73,61 +57,70 @@ function updateCacheObjPos(oscMessage) {
 	}
 
 	const objNum = parseInt(oscMessage.pathArr[4]);
-
 	const queriedObj = getCacheObj(objNum);
 
 	if (typeof newX !== 'undefined') queriedObj.x = newX;
 	if (typeof newY !== 'undefined') queriedObj.y = newY;
-
-	server.emit('cacheUpdated', oscMessage);
 }
 
-function sendObjPos(oscMessage) {
-	const objNum = parseInt(oscMessage.pathArr[4]);
-	const mapping = oscMessage.pathArr[3];
-	const queriedObj = getCacheObj(objNum);
-
-	const message = {
-		oscType: 'message',
-		address: `/dbaudio1/coordinatemapping/source_position_xy/${mapping}/${objNum}`,
-		args: [queriedObj.x, queriedObj.y],
-	};
-
-	const buffer = osc.toBuffer(message);
-
-	server.send(buffer, 0, buffer.length, config.DS100.Reply, 'localhost', (err) => {
-		if (err) {
-			throw err;
-		}
-		console.log(`Fake DS100 sent: ${message.address} ${message.args.join(' ')}`);
-	});
-}
-server.on('posQueried', sendObjPos);
-server.on('cacheUpdated', sendObjPos);
-
-server.on('fakeds100', (oscMessage) => {
+function handlefakeds100(oscMessage, rinfo) {
 	if (oscMessage.pathArr[1] === 'randomize') {
 		console.log('Randomizing!');
-		posCache.forEach((obj) => {
+		cache.forEach((cacheObj) => {
 			// eslint-disable-next-line no-param-reassign
-			obj.x = Math.random();
+			cacheObj.x = Math.random();
 			// eslint-disable-next-line no-param-reassign
-			obj.y = Math.random();
-		});
-		posCache.forEach((cacheObj) => {
-			sendCacheObjPos(cacheObj);
+			cacheObj.y = Math.random();
+
+			sendPosition(cacheObj, rinfo.address);
 		});
 	} else {
-		console.error(`Fake DS100 received an unusable message: ${oscMessage.oscString}`);
+		console.error(`Received an unusable message: ${oscMessage.oscString}`);
 	}
+}
+
+function handledbaudio1(oscMessage, rinfo) {
+	const coordMapRegex = /\/dbaudio1\/coordinatemapping\/source_position(_(x|y|xy))?\/[1-4]\/([1-9]$|[1-5][0-9]|6[0-4])/;
+	if (coordMapRegex.test(oscMessage.address)) {
+		const queriedObj = getCacheObj(oscMessage.pathArr[4]);
+		if (oscMessage.argsArr.length === 0) {
+			sendPosition(queriedObj, rinfo.address);
+		} else {
+			updateCoordinates(oscMessage);
+			sendPosition(queriedObj, rinfo.address);
+		}
+	} else {
+		console.log('Received an unusable /dbaudio1 message');
+	}
+}
+
+server.on('error', (error) => {
+	console.error(error);
+	server.close(() => {
+		console.log('server closed');
+	});
 });
 
-server.on('dbaudio1', (oscMessage) => {
-	if (oscMessage.pathArr[1] === 'coordinatemapping') {
-		if (oscMessage.argsArr.length === 0) {
-			server.emit('posQueried', oscMessage);
-		} else {
-			updateCacheObjPos(oscMessage);
-		}
+server.on('listening', () => {
+	const address = server.address();
+	console.log(`Listening on port ${address.port}`);
+	server.emit('randomize');
+});
+
+server.on('message', (msg, rinfo) => {
+	let oscMessage;
+	try {
+		oscMessage = fromBuffer(msg);
+		console.log(`Received: ${oscMessage.oscString} from ${rinfo.address}:${rinfo.port}`);
+	} catch (error) {
+		console.error(error);
+	}
+
+	if (oscMessage.pathArr[0] === 'dbaudio1') {
+		handledbaudio1(oscMessage, rinfo);
+	} else if (oscMessage.pathArr[0] === 'fakeds100') {
+		handlefakeds100(oscMessage, rinfo);
+	} else {
+		console.error(`Received an unusable message: ${oscMessage.oscString}`);
 	}
 });
